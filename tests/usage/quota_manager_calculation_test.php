@@ -27,7 +27,8 @@ use block_disk_quota\usage\quota_manager;
 defined('MOODLE_INTERNAL') || die();
 
 class quota_manager_calculation_test extends advanced_testcase {
-    protected function setUp() {
+    protected function setUp(): void {
+        parent::setUp();
         set_config('last_measurement_reduction', "1997.01.01", 'block_disk_quota');
         $this->resetAfterTest();
     }

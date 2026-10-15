@@ -26,7 +26,8 @@ use block_disk_quota\task\get_disk_usage;
 defined('MOODLE_INTERNAL') || die();
 
 class get_disk_usage_test extends advanced_testcase {
-    protected function setUp() {
+    protected function setUp(): void {
+        parent::setUp();
         set_config('last_measurement_reduction', "1997.01.01", 'block_disk_quota');
         $this->resetAfterTest();
     }

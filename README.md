@@ -62,39 +62,15 @@ The usage detail page may not work if using a non-PosgreSQL database.
 * Nicer visual indication of current space used.
 * Handle local disk usage of repositories other than those tracked in the Moodle database.
 
-## Additional moodledata storage
+## Storage hierarchy and backup reports
 
-The scheduled measurement now adds regular file lengths in every top-level
-`$CFG->dataroot` directory except `filedir`. The existing deduplicated `{files}`
-calculation and MIME-type breakdown remain unchanged. Additional entries appear
-as `moodledata/kurssicherung`, `moodledata/cache`, `moodledata/trashdir`, etc.
-Files directly inside dataroot appear as `moodledata (root files)`.
+The current feature separates occupied storage from logical content metadata.
+The scheduled task measures the configured database plus actual allocated
+filesystem storage in moodledata and the Moodle installation. The main report
+links to a moodledata directory breakdown and a separate logical content-type
+report. Backups have distinct user, manual-course, automated-course and external
+directory lists, plus a catch-all for other file areas.
 
-This is a logical-byte total (decimal GB), not filesystem allocated blocks:
-filesystem metadata, directory blocks and sparse-file allocation are not measured.
-Symbolic links are skipped at every level, including linked directories. Real
-mounted directories inside dataroot are traversed. Hard-linked files outside
-filedir are counted for each pathname. Orphaned filedir files remain excluded.
-Storage configured outside dataroot is not included.
-
-Directory scanning happens only in `get_disk_usage`, not on report page views.
-The latest directory breakdown is saved in plugin configuration in the same
-database transaction as the total measurement. The existing MIME breakdown is
-still calculated live, so it can differ from the latest scheduled total.
-Before the first successful task execution, no directory rows are available.
-Run the task after applying this patch:
-
-```sh
-php admin/cli/scheduled_task.php --execute='\block_disk_quota\task\get_disk_usage'
-```
-
-The task user must be able to list the tree and stat its files. An iteration or
-stat exception aborts the new measurement, retaining the previous saved result;
-check the task log and rerun after fixing access or a transient filesystem race.
-Actively changing directories do not provide an atomic filesystem snapshot.
-A scan of a large backup tree can take time; use the normal scheduled task.
-No database schema changes are required.
-
-Tests: `tests/usage/dataroot_space_usage_test.php` covers directory grouping,
-filedir exclusion, root files, symbolic links, persisted breakdown and a failed
-scan. Run with your Moodle PHPUnit installation before production deployment.
+Run the plugin upgrade and the scheduled task after applying the numbered patch
+series. See [TESTING.md](TESTING.md) for installation commands, validation,
+measurement scope, supported database engines and the history metric change.
