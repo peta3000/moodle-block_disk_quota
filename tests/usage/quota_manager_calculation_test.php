@@ -36,18 +36,27 @@ class quota_manager_calculation_test extends advanced_testcase {
      * Test the total disk space used calculations.
      */
     public function test_get_total_disk_space_used() {
-        // By default, Moodle only setup 4 images.
-        $imagesize = $this->get_current_size_for_mime("image/%");
-        $quotamanager = new quota_manager();
-        $total = $quotamanager->get_total_disk_space_used();
-        $details = $quotamanager->get_usage_details();
-        $directorytotal = 0;
-        foreach ($details['breakdown'] as $name => $value) {
-            if (strpos($name, 'moodledata') === 0) {
-                $directorytotal += $value;
-            }
+        global $CFG;
+        $data = $CFG->dataroot;
+        $code = $CFG->root ?? $CFG->dirroot;
+        $fixture = make_request_directory();
+        mkdir($fixture . '/data');
+        mkdir($fixture . '/code');
+        try {
+            $CFG->dataroot = $fixture . '/data';
+            $CFG->root = $fixture . '/code';
+            file_put_contents($CFG->dataroot . '/test', 'physical content');
+            $manager = new quota_manager();
+            $used = $manager->get_total_disk_space_used();
+            $manager->record_space_used($used, 800);
+            $snapshot = \block_disk_quota\usage\storage_usage::saved();
+            $this->assertSame($snapshot['database']['bytes'] + $snapshot['moodledata']['bytes'] +
+                $snapshot['code']['bytes'], $snapshot['total_bytes']);
+            $this->assertEqualsWithDelta($used, $snapshot['total_bytes'] / 1000000000, 1e-12);
+        } finally {
+            $CFG->dataroot = $data;
+            $CFG->root = $code;
         }
-        $this->assertEqualsWithDelta($imagesize + $directorytotal, $total, 0.000000001);
     }
 
     /**

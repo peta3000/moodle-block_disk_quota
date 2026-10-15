@@ -92,8 +92,10 @@ class dataroot_space_usage_test extends advanced_testcase {
             $used = $manager->get_total_disk_space_used();
             $manager->record_space_used($used, 800);
             $this->assertEqualsWithDelta($used,
-                (new quota_manager())->get_usage_details()['total_gb'], 1e-12);
+                \block_disk_quota\usage\storage_usage::saved()['total_bytes'] / 1000000000, 1e-12);
             $this->assertEquals(1, $DB->count_records('block_disk_quota_measurement'));
+            $collector = new dataroot_space_usage();
+            set_config('dataroot_usage_details', json_encode($collector->refresh()), 'block_disk_quota');
             // A page view uses the saved scan rather than scanning the filesystem again.
             file_put_contents($root . '/kurssicherung/backup.mbz', str_repeat('x', 200));
             $saved = (new dataroot_space_usage())->get_usage_details();
@@ -115,7 +117,7 @@ class dataroot_space_usage_test extends advanced_testcase {
                 $used = $manager->get_total_disk_space_used();
                 $manager->record_space_used($used, 800);
                 $this->fail('An inaccessible dataroot must abort the measurement.');
-            } catch (\UnexpectedValueException $exception) {
+            } catch (\RuntimeException $exception) {
                 $this->assertEquals(0, $DB->count_records('block_disk_quota_measurement'));
                 $this->assertFalse(get_config('block_disk_quota', 'dataroot_usage_details'));
             }

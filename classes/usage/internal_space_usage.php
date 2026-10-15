@@ -61,9 +61,12 @@ class internal_space_usage implements space_usage_interface {
             $gbsize = $record->size / $gigabyte;
             $gbtotal += $gbsize;
 
-            $explodedmimetype = explode("/", $record->mimetype);
-            $mimetype = $explodedmimetype[0];
-            $mimesubtype = $explodedmimetype[1];
+            $explodedmimetype = explode("/", (string)$record->mimetype, 2);
+            $mimetype = $explodedmimetype[0] ?: 'unknown';
+            $mimesubtype = $explodedmimetype[1] ?? '';
+            if (!isset($breakdown[$mimetype])) {
+                $breakdown[$mimetype] = 0;
+            }
 
             // Exctract vnd.moodle.backup subtype from application mimetype.
             if ($mimesubtype === 'vnd.moodle.backup') {

@@ -20,50 +20,40 @@ defined('MOODLE_INTERNAL') || die();
 
 class quota_manager {
 
-    protected $spaceusage;
-    protected $datarootusage;
-    protected $datarootdetails = null;
+    protected $snapshot = null;
 
-    public function __construct() {
-        $this->datarootusage = new dataroot_space_usage();
-        $collectors = array(new internal_space_usage(), $this->datarootusage);
-        $this->spaceusage = new space_usage($collectors);
-    }
     public function get_total_disk_space_used() {
-        $this->datarootdetails = $this->datarootusage->refresh();
-        return $this->spaceusage->total_used();
+        $this->snapshot = (new storage_usage())->measure();
+        return $this->snapshot['total_bytes'] / 1000000000;
     }
 
+    /** Logical content metadata only; never added to the physical storage total. */
     public function get_usage_details() {
-        return $this->spaceusage->usage_details();
+        return (new internal_space_usage())->get_usage_details();
     }
 
     public function record_space_used($used, $quota) {
         global $DB;
-        $rec = new \stdClass;
-        $rec->timemeasured = time();
-        $rec->usedgb = $used;
-        $rec->quotagb = $quota;
+        if ($this->snapshot === null) {
+            throw new \RuntimeException('Measure storage before recording its total.');
+        }
+        $json = json_encode($this->snapshot, JSON_THROW_ON_ERROR);
+        $rec = (object)array('timemeasured' => $this->snapshot['timemeasured'],
+            'usedgb' => $this->snapshot['total_bytes'] / 1000000000, 'quotagb' => $quota);
         $transaction = $DB->start_delegated_transaction();
         $DB->insert_record('block_disk_quota_measurement', $rec);
-        if ($this->datarootdetails !== null) {
-            set_config('dataroot_usage_details', json_encode($this->datarootdetails), 'block_disk_quota');
-        }
+        set_config(storage_usage::CONFIG_KEY, $json, 'block_disk_quota');
         $transaction->allow_commit();
     }
 
     public static function get_quota_and_space_used_gb() {
         global $DB;
-        $rows = $DB->get_records('block_disk_quota_measurement', null, 'id desc', '*', 0, 1);
-        if (count($rows) > 0) {
-            $record = array_values($rows)[0];
-            $used = $record->usedgb;
-        } else {
-            $used = null;
-        }
+        $snapshot = storage_usage::saved();
+        $used = $snapshot === null ? null : $snapshot['total_bytes'] / 1000000000;
         $a = new \stdClass;
         $a->quota = get_config('block_disk_quota', 'quota_gb');
         $a->used = $used;
+        $a->warn_limit = (float)get_config('block_disk_quota', 'warn_when_within_gb_of_limit');
         return $a;
     }
 
