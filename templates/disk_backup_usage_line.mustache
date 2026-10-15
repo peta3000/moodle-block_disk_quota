@@ -39,7 +39,12 @@
     <i>{{filename}}</i>
 </td>
 <td>
-<a href="{{course_url}}">{{course_name}}</a>
+{{#course_url}}<a href="{{course_url}}">{{course_name}}</a>{{/course_url}}
+{{^course_url}}{{course_name}}{{/course_url}}
+</td>
+<td>
+    {{storage}}<br>
+    <small>{{location}}</small>
 </td>
 <td class="date">
 {{#userdate}} {{timemodified}}, {{#str}} strftimedatetime {{/str}}  {{/userdate}}

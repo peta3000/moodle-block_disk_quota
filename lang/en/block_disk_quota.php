@@ -45,3 +45,9 @@ $string['backup_course'] = 'Course';
 $string['backup_timemodified'] = 'Last modified';
 $string['backup_size'] = 'Size';
 $string['backup_page_title'] = 'Backups details';
+
+$string['backup_storage'] = 'Storage location';
+$string['backup_source_filearea'] = 'Moodle file area';
+$string['backup_source_directory'] = 'Automatic backup directory';
+$string['backup_course_unavailable'] = 'Not identified';
+$string['backup_directory_unreadable'] = 'The configured automatic backup directory or a subdirectory could not be read. Check its path and permissions, then reload the report.';

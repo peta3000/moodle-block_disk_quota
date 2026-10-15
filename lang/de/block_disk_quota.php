@@ -45,3 +45,9 @@ $string['backup_course'] = 'Kurs';
 $string['backup_timemodified'] = 'Zuletzt geändert';
 $string['backup_size'] = 'Größe';
 $string['backup_page_title'] = 'Details zur Sicherung';
+
+$string['backup_storage'] = 'Speicherort';
+$string['backup_source_filearea'] = 'Moodle-Dateibereich';
+$string['backup_source_directory'] = 'Verzeichnis für automatische Sicherungen';
+$string['backup_course_unavailable'] = 'Nicht ermittelt';
+$string['backup_directory_unreadable'] = 'Das konfigurierte Verzeichnis für automatische Sicherungen oder ein Unterverzeichnis konnte nicht gelesen werden. Prüfen Sie den Pfad und die Zugriffsrechte und laden Sie den Bericht erneut.';

@@ -83,12 +83,17 @@ class block_disk_quota_renderer extends plugin_renderer_base {
         if ($limit < 1) {
             throw new \InvalidArgumentException("Limit should be >= 1");
         }
+        $page = max(1, (int)$page);
         $backupusage = new block_disk_quota\usage\internal_backup_usage();
         $vars = $backupusage->get_backup_paginated(($page - 1) * $limit, $limit);
+        $page = (int)floor($vars->limitfrom / $limit) + 1;
         // Render each line as sting, to be compatible with mustache.
         $vars->data = array_values(array_map(function($element) {
+            $element = clone $element;
             $element->filesize = self::format_bytes($element->filesize);
-            $element->course_url = new moodle_url("/course/view.php", array("id" => $element->course_id));
+            if (!empty($element->course_id)) {
+                $element->course_url = new moodle_url("/course/view.php", array("id" => $element->course_id));
+            }
             return "" . $this->render_from_template('block_disk_quota/disk_backup_usage_line', (array) $element);
         }, $vars->data));
 
