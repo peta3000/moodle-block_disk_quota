@@ -40,7 +40,7 @@ class block_disk_quota_renderer extends plugin_renderer_base {
 
         $classes = '';
         if (is_null($info->used)) {
-            $info->used = 'unknown';
+            $info->used = get_string('storage_not_measured', 'block_disk_quota');
         } else {
             $info->used = round(floatval($info->used), 3);
             $diff = $info->quota - $info->used;
@@ -66,11 +66,12 @@ class block_disk_quota_renderer extends plugin_renderer_base {
      * @return string
      */
     protected static function format_bytes($size, $precision = 2) {
-        $base = log($size, 1000);
-
-        $suffixes = array('B', 'KB', 'MB', 'GB', 'TB');
-        $unit = floor($base);
-        return round(pow(1000, $base - floor($base)), $precision) . ' ' . $suffixes[$unit];
+        if ($size <= 0) {
+            return '0 B';
+        }
+        $suffixes = array('B', 'KB', 'MB', 'GB', 'TB', 'PB');
+        $unit = min(count($suffixes) - 1, max(0, (int)floor(log($size, 1000))));
+        return round($size / pow(1000, $unit), $precision) . ' ' . $suffixes[$unit];
     }
 
     /**
@@ -104,11 +105,60 @@ class block_disk_quota_renderer extends plugin_renderer_base {
     }
 
     public function usage_detail() {
-        $vars = array(
-                'overview' => $this->disk_quota_usage(),
-                'detail' => $this->usage_detail_table(),
-        );
-        return $this->render_from_template('block_disk_quota/usage_detail', $vars);
+        $snapshot = \block_disk_quota\usage\storage_usage::saved();
+        $output = $this->disk_quota_usage();
+        if ($snapshot === null) {
+            $output .= html_writer::tag('p', get_string('storage_run_task', 'block_disk_quota'));
+        } else {
+            $table = new html_table();
+            $table->head = array(get_string('storage_source', 'block_disk_quota'),
+                get_string('gigabytes_used', 'block_disk_quota'));
+            $table->data = array(
+                array(get_string('storage_database', 'block_disk_quota'),
+                    round($snapshot['database']['bytes'] / 1000000000, 3)),
+                array(html_writer::link(new moodle_url('/blocks/disk_quota/moodledata.php'),
+                    get_string('storage_moodledata', 'block_disk_quota') . ' (' . s($snapshot['moodledata']['path']) . ')'),
+                    round($snapshot['moodledata']['bytes'] / 1000000000, 3)),
+                array(get_string('storage_code', 'block_disk_quota') . ' (' . s($snapshot['code']['path']) . ')',
+                    round($snapshot['code']['bytes'] / 1000000000, 3)),
+                array(html_writer::tag('strong', get_string('storage_total', 'block_disk_quota')),
+                    html_writer::tag('strong', round($snapshot['total_bytes'] / 1000000000, 3))),
+            );
+            $output .= html_writer::table($table) . $this->measurement_note($snapshot);
+        }
+        $output .= html_writer::tag('p', html_writer::link(new moodle_url('/blocks/disk_quota/content_types.php'),
+            get_string('content_types', 'block_disk_quota')));
+        return $output;
+    }
+
+    public function moodledata_detail() {
+        $snapshot = \block_disk_quota\usage\storage_usage::saved();
+        if ($snapshot === null) {
+            return html_writer::tag('p', get_string('storage_run_task', 'block_disk_quota'));
+        }
+        $table = new html_table();
+        $table->head = array(get_string('storage_directory', 'block_disk_quota'),
+            get_string('gigabytes_used', 'block_disk_quota'));
+        $breakdown = $snapshot['moodledata']['breakdown'];
+        arsort($breakdown);
+        foreach ($breakdown as $name => $bytes) {
+            $label = $name === '.' ? get_string('storage_root_files', 'block_disk_quota') : s($name);
+            $table->data[] = array($label, round($bytes / 1000000000, 3));
+        }
+        $table->data[] = array(get_string('storage_total', 'block_disk_quota'),
+            round($snapshot['moodledata']['bytes'] / 1000000000, 3));
+        return html_writer::tag('p', s($snapshot['moodledata']['path'])) .
+            html_writer::table($table) . $this->measurement_note($snapshot);
+    }
+
+    private function measurement_note(array $snapshot) {
+        $output = html_writer::tag('p', get_string('storage_measured_at', 'block_disk_quota',
+            userdate($snapshot['timemeasured'])));
+        $output .= html_writer::tag('p', get_string('storage_measurement_note', 'block_disk_quota'));
+        if ($snapshot['database']['method'] === 'mysql_table_estimate') {
+            $output .= html_writer::tag('p', get_string('storage_database_estimate', 'block_disk_quota'));
+        }
+        return $output;
     }
 
     public function usage_detail_table() {
@@ -124,7 +174,7 @@ class block_disk_quota_renderer extends plugin_renderer_base {
         $breakdown = $detail['breakdown'];
         arsort($breakdown);
         foreach ($breakdown as $type => $value) {
-            if ("backup" === $type && $value > 0.0) {
+            if ("backup" === $type) {
                 $backuplink = html_writer::link(new moodle_url("/blocks/disk_quota/backups.php"), $type);
                 $data[] = array($backuplink, round($value, 3));
             } else {
@@ -149,7 +199,7 @@ class block_disk_quota_renderer extends plugin_renderer_base {
     }
 
     public function activeusers_quota() {
-        return $this->render_from_template('block_disk_quota/activeusers_quota', $this->activeusers_usage());
+        return $this->activeusers_usage();
     }
 
     /**
