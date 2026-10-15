@@ -80,12 +80,12 @@ class block_disk_quota_renderer extends plugin_renderer_base {
      * @return bool|string
      * @throws moodle_exception
      */
-    public function disk_backup_usage($page = 1, $limit = 100) {
+    public function disk_backup_usage($page = 1, $limit = 100, $category = 'all') {
         if ($limit < 1) {
             throw new \InvalidArgumentException("Limit should be >= 1");
         }
         $page = max(1, (int)$page);
-        $backupusage = new block_disk_quota\usage\internal_backup_usage();
+        $backupusage = new block_disk_quota\usage\internal_backup_usage($category);
         $vars = $backupusage->get_backup_paginated(($page - 1) * $limit, $limit);
         $page = (int)floor($vars->limitfrom / $limit) + 1;
         // Render each line as sting, to be compatible with mustache.
@@ -95,13 +95,26 @@ class block_disk_quota_renderer extends plugin_renderer_base {
             if (!empty($element->course_id)) {
                 $element->course_url = new moodle_url("/course/view.php", array("id" => $element->course_id));
             }
+            if (!empty($element->user_id)) {
+                $element->user_url = new moodle_url('/user/profile.php', array('id' => $element->user_id));
+            }
             return "" . $this->render_from_template('block_disk_quota/disk_backup_usage_line', (array) $element);
         }, $vars->data));
 
         return $this->render_from_template('block_disk_quota/disk_backup_usage', (array) $vars) . "\n" .
-                $this->render_backup_pagination($page, $limit, $vars->total, function($page) {
-                    return new moodle_url("/blocks/disk_quota/backups.php", ["page" => $page]);
+                $this->render_backup_pagination($page, $limit, $vars->total, function($page) use ($category) {
+                    return new moodle_url("/blocks/disk_quota/backups.php", ["page" => $page, "category" => $category]);
                 });
+    }
+
+    public function backup_categories() {
+        $output = '';
+        foreach (\block_disk_quota\usage\internal_backup_usage::categories() as $category => $key) {
+            $output .= html_writer::tag('li', html_writer::link(
+                new moodle_url('/blocks/disk_quota/backups.php', array('category' => $category)),
+                get_string($key, 'block_disk_quota')));
+        }
+        return html_writer::tag('ul', $output);
     }
 
     public function usage_detail() {

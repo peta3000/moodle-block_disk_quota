@@ -22,6 +22,37 @@ defined('MOODLE_INTERNAL') || die();
 class internal_backup_usage {
     /** @var array|null Combined inventory, collected once per report request. */
     private $backups = null;
+    private $category;
+
+    /** 'all' is retained for internal callers; the UI offers separate categories. */
+    public function __construct($category = 'all') {
+        if ($category !== 'all' && !array_key_exists($category, self::categories())) {
+            throw new \InvalidArgumentException('Unknown backup category.');
+        }
+        $this->category = $category;
+    }
+
+    public static function categories() {
+        return array('user' => 'backup_category_user', 'course' => 'backup_category_course',
+            'automated' => 'backup_category_automated', 'directory' => 'backup_category_directory',
+            'other' => 'backup_category_other');
+    }
+
+    private function category_for($record) {
+        if ($record->component === 'user' && $record->filearea === 'backup' &&
+                (int)$record->contextlevel === CONTEXT_USER) {
+            return 'user';
+        }
+        if ($record->component === 'backup' && (int)$record->contextlevel === CONTEXT_COURSE) {
+            if ($record->filearea === 'course') {
+                return 'course';
+            }
+            if ($record->filearea === 'automated') {
+                return 'automated';
+            }
+        }
+        return 'other';
+    }
 
     public function get_backup_paginated($limitfrom = 0, $limitnum = 0) {
         $all = $this->get_backups();
@@ -57,36 +88,48 @@ class internal_backup_usage {
         if ($this->backups !== null) {
             return $this->backups;
         }
-        $records = $DB->get_records_sql(
-            "SELECT f.id, f.filename, f.filesize, f.timemodified, f.contextid, f.component, f.filearea,
-                    c.id AS course_id, c.fullname AS course_name
-               FROM {files} f
-          LEFT JOIN {context} ctx ON ctx.id = f.contextid
-          LEFT JOIN {course} c ON ctx.contextlevel = :courselevel AND c.id = ctx.instanceid
-              WHERE f.filesize > 0 AND f.mimetype = :mimetype",
-            array('courselevel' => CONTEXT_COURSE, 'mimetype' => 'application/vnd.moodle.backup'));
         $backups = array();
-        foreach ($records as $record) {
-            $record->id = 'file-' . $record->id;
-            $record->storage = get_string('backup_source_filearea', 'block_disk_quota');
-            $record->location = $record->component . '/' . $record->filearea;
-            if (empty($record->course_id)) {
-                $record->course_name = get_string('backup_course_unavailable', 'block_disk_quota');
+        if ($this->category !== 'directory') {
+            $records = $DB->get_records_sql(
+                "SELECT f.id, f.filename, f.filesize, f.timemodified, f.contextid, f.component, f.filearea,
+                        ctx.contextlevel, c.id AS course_id, c.fullname AS course_name,
+                        u.id AS user_id, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic,
+                        u.middlename, u.alternatename
+                   FROM {files} f
+              LEFT JOIN {context} ctx ON ctx.id = f.contextid
+              LEFT JOIN {course} c ON ctx.contextlevel = :courselevel AND c.id = ctx.instanceid
+              LEFT JOIN {user} u ON u.id = CASE WHEN ctx.contextlevel = :userlevel
+                        THEN ctx.instanceid ELSE f.userid END
+                  WHERE f.filesize > 0 AND f.mimetype = :mimetype",
+                array('courselevel' => CONTEXT_COURSE, 'userlevel' => CONTEXT_USER,
+                    'mimetype' => 'application/vnd.moodle.backup'));
+            foreach ($records as $record) {
+                $record->category = $this->category_for($record);
+                if ($this->category !== 'all' && $record->category !== $this->category) {
+                    continue;
+                }
+                $record->id = 'file-' . $record->id;
+                $record->storage = get_string('backup_source_filearea', 'block_disk_quota');
+                $record->location = $record->component . '/' . $record->filearea;
+                $record->user_name = !empty($record->user_id) ? fullname($record) : '';
+                if (empty($record->course_id)) {
+                    $record->course_name = get_string('backup_course_unavailable', 'block_disk_quota');
+                }
+                $backups[] = $record;
             }
-            $backups[] = $record;
         }
-        $directory = get_config('backup', 'backup_auto_destination');
-        if ($directory !== false && trim($directory) !== '') {
-            $directory = realpath($directory);
-            if ($directory === false || !is_dir($directory) || !is_readable($directory)) {
-                throw new \moodle_exception('backup_directory_unreadable', 'block_disk_quota');
-            }
-            try {
-                $this->add_directory_backups($directory, '', $backups);
-            } catch (\UnexpectedValueException $exception) {
-                throw new \moodle_exception('backup_directory_unreadable', 'block_disk_quota');
-            } catch (\RuntimeException $exception) {
-                throw new \moodle_exception('backup_directory_unreadable', 'block_disk_quota');
+        if ($this->category === 'all' || $this->category === 'directory') {
+            $directory = get_config('backup', 'backup_auto_destination');
+            if ($directory !== false && trim($directory) !== '') {
+                $directory = realpath($directory);
+                if ($directory === false || !is_dir($directory) || !is_readable($directory)) {
+                    throw new \moodle_exception('backup_directory_unreadable', 'block_disk_quota');
+                }
+                try {
+                    $this->add_directory_backups($directory, '', $backups);
+                } catch (\RuntimeException $exception) {
+                    throw new \moodle_exception('backup_directory_unreadable', 'block_disk_quota');
+                }
             }
         }
         usort($backups, function($a, $b) {
@@ -118,6 +161,9 @@ class internal_backup_usage {
                     'filename' => $entry->getFilename(),
                     'filesize' => $entry->getSize(),
                     'timemodified' => $entry->getMTime(),
+                    'category' => 'directory',
+                    'user_id' => null,
+                    'user_name' => '',
                     'course_id' => null,
                     'course_name' => get_string('backup_course_unavailable', 'block_disk_quota'),
                     'storage' => get_string('backup_source_directory', 'block_disk_quota'),

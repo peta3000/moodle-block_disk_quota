@@ -66,3 +66,14 @@ $string['storage_measurement_note'] = 'Dezimale GB. Dateisystemgrössen basieren
 $string['storage_database_estimate'] = 'Die Datenbankgrösse unter MariaDB/MySQL ist eine Schätzung des Servers für Tabellendaten und Indizes.';
 $string['content_types'] = 'Inhaltstypen';
 $string['content_types_note'] = 'Logische Inhaltsgrössen aus den Moodle-Dateieinträgen, ohne Prüfung der physischen Dateien. Diese Werte werden nicht zur Speicherbelegung addiert. Sicherungen im separaten Verzeichnis erscheinen in den Sicherungskategorien, nicht in diesen MIME-Typ-Werten.';
+
+$string['backup_category_user'] = 'Sicherungen in persönlichen Dateibereichen';
+$string['backup_category_course'] = 'Manuelle Sicherungen in Kursdateibereichen';
+$string['backup_category_automated'] = 'Automatische Kurssicherungen (Kursdateibereich)';
+$string['backup_category_directory'] = 'Automatische Kurssicherungen (separates Verzeichnis)';
+$string['backup_category_other'] = 'Weitere Sicherungsdateibereiche';
+$string['backup_user'] = 'Nutzer/in';
+$string['backup_invalid_category'] = 'Unbekannte Sicherungskategorie.';
+$string['backup_all_categories'] = 'Sicherungskategorien';
+$string['backup_directory_unconfigured'] = 'Es ist kein Zielverzeichnis für automatische Sicherungen konfiguriert.';
+$string['backup_metadata_note'] = 'Moodle-Dateieinträge können sich auf Dateien beziehen, die in dieser lokalen Instanz fehlen. Kursnamen werden nur bei eindeutigem Kurskontext angezeigt. Verzeichnisarchive werden nicht geöffnet, um Kurs oder Ersteller zu ermitteln.';

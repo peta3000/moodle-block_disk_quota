@@ -43,6 +43,10 @@
 {{^course_url}}{{course_name}}{{/course_url}}
 </td>
 <td>
+    {{#user_url}}<a href="{{user_url}}">{{user_name}}</a>{{/user_url}}
+    {{^user_url}}{{user_name}}{{/user_url}}
+</td>
+<td>
     {{storage}}<br>
     <small>{{location}}</small>
 </td>
