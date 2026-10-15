@@ -123,7 +123,7 @@ class block_disk_quota_renderer extends plugin_renderer_base {
                 $backuplink = html_writer::link(new moodle_url("/blocks/disk_quota/backups.php"), $type);
                 $data[] = array($backuplink, round($value, 3));
             } else {
-                $data[] = array($type, round($value, 3));
+                $data[] = array(s($type), round($value, 3));
             }
         }
         $table->data = $data;

@@ -21,13 +21,16 @@ defined('MOODLE_INTERNAL') || die();
 class quota_manager {
 
     protected $spaceusage;
+    protected $datarootusage;
+    protected $datarootdetails = null;
 
     public function __construct() {
-        // TODO: determine what collectors other than internal_space_usage should be used.
-        $collectors = array(new internal_space_usage());
+        $this->datarootusage = new dataroot_space_usage();
+        $collectors = array(new internal_space_usage(), $this->datarootusage);
         $this->spaceusage = new space_usage($collectors);
     }
     public function get_total_disk_space_used() {
+        $this->datarootdetails = $this->datarootusage->refresh();
         return $this->spaceusage->total_used();
     }
 
@@ -41,7 +44,12 @@ class quota_manager {
         $rec->timemeasured = time();
         $rec->usedgb = $used;
         $rec->quotagb = $quota;
+        $transaction = $DB->start_delegated_transaction();
         $DB->insert_record('block_disk_quota_measurement', $rec);
+        if ($this->datarootdetails !== null) {
+            set_config('dataroot_usage_details', json_encode($this->datarootdetails), 'block_disk_quota');
+        }
+        $transaction->allow_commit();
     }
 
     public static function get_quota_and_space_used_gb() {

@@ -39,7 +39,15 @@ class quota_manager_calculation_test extends advanced_testcase {
         // By default, Moodle only setup 4 images.
         $imagesize = $this->get_current_size_for_mime("image/%");
         $quotamanager = new quota_manager();
-        $this->comparefloat($quotamanager->get_total_disk_space_used(), $imagesize);
+        $total = $quotamanager->get_total_disk_space_used();
+        $details = $quotamanager->get_usage_details();
+        $directorytotal = 0;
+        foreach ($details['breakdown'] as $name => $value) {
+            if (strpos($name, 'moodledata') === 0) {
+                $directorytotal += $value;
+            }
+        }
+        $this->assertEqualsWithDelta($imagesize + $directorytotal, $total, 0.000000001);
     }
 
     /**
